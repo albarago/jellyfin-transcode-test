@@ -5,8 +5,15 @@ Dashboard → Playback → Transcoding page:
 
 - **Compatibility check:** checks which video formats your GPU decodes and encodes with your saved settings, and
   whether HDR tone mapping works, using short test clips it creates. It tells you which settings to change.
+
+<img width="971" height="782" alt="compatibility-check" src="https://github.com/user-attachments/assets/45f944fd-c8dd-4ce0-a979-16e836b9267d" />
+
+  
 - **Stress test:** transcodes a movie the way Jellyfin does during playback and adds a stream every 12 seconds
   until one can no longer keep up with real time.
+
+  <img width="971" height="782" alt="stress-test" src="https://github.com/user-attachments/assets/7bd1cce9-6f6d-4ce9-94c8-e8dc66d9f478" />
+
 
 The code is in the `transcode-test` branches of [albarago/jellyfin](https://github.com/albarago/jellyfin/tree/transcode-test)
 and [albarago/jellyfin-web](https://github.com/albarago/jellyfin-web/tree/transcode-test). It has only been tested on
