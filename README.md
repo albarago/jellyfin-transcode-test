@@ -19,6 +19,8 @@ The code is in the `transcode-test` branches of [albarago/jellyfin](https://gith
 and [albarago/jellyfin-web](https://github.com/albarago/jellyfin-web/tree/transcode-test). It has only been tested on
 Apple VideoToolbox so far. Results from **NVIDIA, Intel and AMD** hardware are the most useful.
 
+See [CHANGELOG.md](CHANGELOG.md) for what changed between builds and what to re-check.
+
 This is a development build of Jellyfin 13.0, not a release. Run it **next to** your real server, never on your
 real server's config.
 
