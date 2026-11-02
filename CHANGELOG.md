@@ -4,6 +4,40 @@ Each image is tagged `<server commit>-<web commit>` from the `transcode-test` br
 [albarago/jellyfin](https://github.com/albarago/jellyfin/tree/transcode-test) and
 [albarago/jellyfin-web](https://github.com/albarago/jellyfin-web/tree/transcode-test). `latest` is the newest one.
 
+## `3cf182621-66ab809e6` — 2026-11-02
+
+Fixes from a report on an Intel Celeron N5095 (UHD Graphics, i915, TerraMaster TOS 5.1, Portainer), testing QSV
+and VAAPI.
+
+**Compatibility check: tone mapping is tested the way playback does it**
+- The check used to force "VPP tone mapping" on. Jellyfin's Intel pipelines use VPP (`tonemap_vaapi`) instead of
+  OpenCL (`tonemap_opencl`) whenever that option is on, so QSV could fail tone mapping even though playback, with
+  VPP off, uses OpenCL. The check now keeps your VPP choice. The filter it tested is shown on the row.
+
+**Compatibility check: encoders run with playback's options**
+- The check now passes the same encoder options as playback (preset, profile, level, rate control, Intel
+  low-power mode, the i915 workaround). Before, it only set a bitrate, so an encoder could pass or fail differently
+  from playback.
+
+**After switching to VAAPI, restart Jellyfin**
+- Jellyfin identifies a VAAPI device (Intel iHD, i965 or AMD) only at startup, and only when VAAPI is the saved
+  type. Until you restart, it uses its generic VAAPI pipeline, so results can change after a restart. The test log
+  now says so when the device has not been identified.
+
+**Clearer reason when a test clip cannot be made**
+- SVT-AV1's harmless "Failed to set thread priority" warning is no longer shown as the reason. The log now shows
+  the exit code, and the signal if ffmpeg was killed (for example `exit code 137, ended by signal 9`, which
+  usually means it ran out of memory).
+
+**What to re-check with this build (Intel QSV / VAAPI)**
+1. Restart Jellyfin after every change of hardware acceleration type, then run both tests.
+2. QSV with "Enable tone mapping" on and "Enable VPP tone mapping" off: the tone mapping row should test
+   `tonemap_opencl`.
+3. If the AV1 test clip still cannot be made, please send the new log line with the exit code.
+
+Checked in the tester image (arm64) with an ffmpeg wrapper that makes Jellyfin build its QSV pipeline without a
+GPU, and on Apple VideoToolbox. Unit tests: 65 server, 16 web. Not yet run on real Intel hardware.
+
 ## `137bc6a5d-66ab809e6` — 2026-11-02
 
 Fixes found while checking the first Intel QSV report (i7-12700K / UHD 770, Unraid, jellyfin-ffmpeg 8.1.3) on
