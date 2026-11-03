@@ -8,6 +8,33 @@ On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit
 not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
 branches.
 
+## `5d3f71893-47e0bdf2f` — 2026-11-03
+
+Changes suggested on [#163](https://github.com/jellyfin/jellyfin-meta/discussions/163) to follow the Jellyfin
+hardware survey's test method ([whitepaper](https://github.com/JPVenson/Jellyfin.HardwareVisualizer/blob/main/HWA-Client-Whitepaper.md)).
+
+**Stress test: every stream must keep real time**
+
+- The threshold is now **100%** of the source frame rate, not 90%. A stream below real time falls further
+  behind the longer it plays, until the player runs out of buffer. Short dips are still allowed for 5 seconds.
+- **Expect lower counts than with earlier builds.** On an Apple M5 (4K Dolby Vision → 1080p H.264 8 Mbps), 90%
+  reported 12 streams, most of them running at 0.91–0.96× real time; 100% reports 8–10. Results from earlier
+  builds are not comparable.
+
+**Stress test: speed and single-stream rate**
+
+- A **× real time** column next to each stream's frame rate.
+- The result and the test log say how fast **one stream ran alone** (the survey's single-worker speed).
+
+**NVIDIA: the encoding session limit is named**
+
+- Consumer NVIDIA GPUs allow only 3, 5 or 8 encoding sessions at once, depending on the driver. When the driver
+  refuses the next one ("out of memory (10)"), the test now ends with **Driver limit** and says it's a driver
+  limit, not what the GPU can do. Not yet checked on real NVIDIA hardware: if you have one, please run it.
+
+The API also reports `SurveyFailureReason` (`performance`, `failed_timeout`, `failed_nvenc_limit`), the survey's
+names for why a test ended. Unit tests: 74 server, 20 web.
+
 ## `4e59508a0-6a1eb6efc` — 2026-11-02
 
 **Compatibility check: tone mapping on macOS is tested the way playback does it**
