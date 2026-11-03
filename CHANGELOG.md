@@ -4,6 +4,26 @@ Each image is tagged `<server commit>-<web commit>` from the `transcode-test` br
 [albarago/jellyfin](https://github.com/albarago/jellyfin/tree/transcode-test) and
 [albarago/jellyfin-web](https://github.com/albarago/jellyfin-web/tree/transcode-test). `latest` is the newest one.
 
+On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit author name. The files did
+not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
+branches.
+
+## `4e59508a0-6a1eb6efc` — 2026-11-02
+
+**Compatibility check: tone mapping on macOS is tested the way playback does it**
+
+- The check used to force "Enable VideoToolbox tone mapping" on, so on a Mac it always tested the tone mapping
+  built into `scale_vt`. With that option off, playback uses Jellyfin's Metal filter (`tonemap_videotoolbox`)
+  instead. The check now keeps your choice, as it already does for VPP on Intel.
+
+**What to re-check with this build (macOS)**
+
+1. Turn "Enable VideoToolbox tone mapping" off, save and run the compatibility check. The tone mapping row should
+   test `tonemap_videotoolbox`; with the option on, `scale_vt`.
+
+Checked on an Apple M5 with jellyfin-ffmpeg 8.1.3: off, `tonemap_videotoolbox` passed at 170 fps; on, `scale_vt`
+passed at 174 fps. Unit tests: 65 server, 16 web. Same Intel notes as the previous build.
+
 ## `3cf182621-66ab809e6` — 2026-11-02
 
 Fixes from a report on an Intel Celeron N5095 (UHD Graphics, i915, TerraMaster TOS 5.1, Portainer), testing QSV
