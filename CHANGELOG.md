@@ -8,6 +8,22 @@ On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit
 not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
 branches.
 
+## `d1b62fb38-47e0bdf2f` — 2026-11-03
+
+**Compatibility check: a test clip that can't be made is retried smaller**
+
+- On an Intel Celeron N5095 NAS the AV1 test clip could never be made (`libsvtav1` ended with signal 11), so AV1
+  decoding showed **Not tested**. At 1080p, `libsvtav1` needs more than 512 MB, and a container with a tight memory
+  limit kills it. If a clip fails, the check now makes it once more at 640×360, which fits in 256 MB, and the log
+  says so. The clip only has to exercise the decoder.
+
+**What to re-check with this build**
+
+1. If AV1 decoding showed **Not tested** before, run the compatibility check again. Look for "Trying again at
+   640x360" in the log. AV1 decoding should now be tested (on CPUs that can't decode AV1 in hardware, it will
+   show as failed or not supported, which is the right answer).
+2. If it still can't make the clip, please send the log line, and the container's memory limit if you know it.
+
 ## `5d3f71893-47e0bdf2f` — 2026-11-03
 
 Changes suggested on [#163](https://github.com/jellyfin/jellyfin-meta/discussions/163) to follow the Jellyfin
