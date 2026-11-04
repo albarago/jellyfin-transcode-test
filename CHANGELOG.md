@@ -8,6 +8,26 @@ On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit
 not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
 branches.
 
+## `1dceda9c5-3cbc4ce19` — 2026-11-03
+**Stress test: a stream that never starts is reported as the limit, with ffmpeg's output**
+- On an RTX 5080 (NVENC), streams 9 and 10 produced no frames in 30 s while the other 8 ran at about 3× real
+  time. The test ended with an error and no clue why. If the newest stream stalls after K streams kept up, the
+  result is now a warning: "K stream(s) kept up; the server could not start stream K+1". A stall of the first
+  stream, or of one that was already running, is still an error.
+- The log and the result now include ffmpeg's last output for a stalled stream (or say that ffmpeg printed
+  nothing). Before, that output was dropped.
+- If a stalled ffmpeg printed an NVENC session-limit error, the result now says so, like a stream that exits with
+  it. With NVENC and 3 or more streams kept up, the banner adds a hint that the NVIDIA driver's session limit may
+  be the cause.
+
+**What to re-check with this build**
+1. Pull the new image (`docker pull ghcr.io/albarago/jellyfin-transcode-test:latest`) and recreate the container.
+2. Run the same stress test as before, once with tone mapping on and once with it off.
+3. In the dashboard log, find the line "Stream N produced no frames in 30 s." and the text after it
+   ("ffmpeg's last output: …" or "ffmpeg printed nothing."). Please share that line on
+   [#163](https://github.com/jellyfin/jellyfin-meta/discussions/163), with the number of streams shown in the
+   result banner.
+
 ## `d1b62fb38-47e0bdf2f` — 2026-11-03
 
 **Compatibility check: a test clip that can't be made is retried smaller**
