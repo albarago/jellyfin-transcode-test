@@ -8,6 +8,42 @@ On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit
 not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
 branches.
 
+## `3e80dc607-102904f34` — 2026-11-04
+Fixes from the reports on [#163](https://github.com/jellyfin/jellyfin-meta/discussions/163) by Gauvino, criscrafter
+and alyssaholland99.
+
+**Stress test: NVIDIA's session limit is now detected on real cards**
+- On drivers that allow 12 sessions (RTX 3060 and 3080), the 13th ffmpeg prints NVIDIA's refusal
+  (`OpenEncodeSessionEx failed: incompatible client key (21)`) and then about 10 more error lines. Earlier builds
+  kept only the end of that output, so the refusal was gone and the run ended as a plain failed stream. Each line is
+  now checked as it arrives, so the run ends as **Driver limit** (`failed_nvenc_limit`), and the refusal is shown
+  first in the error text.
+- The driver-limit message now says recent drivers allow up to 12 sessions. It used to say 3, 5 or 8.
+
+**Stress test: "GPU memory full"**
+- When the GPU runs out of memory after at least one stream kept up, the result is now a warning: "N kept up with
+  real time, then the GPU ran out of memory on stream N+1", with ffmpeg's memory error. It no longer shows the NVIDIA
+  session hint. Recognised errors: CUDA (`CUDA_ERROR_OUT_OF_MEMORY`), VAAPI (`resource allocation failed`), QSV
+  (`failed to allocate memory (-4)`) and Vulkan (`VK_ERROR_OUT_OF_DEVICE_MEMORY`). AMF prints its errors as bare
+  numbers, so it isn't recognised yet.
+- Not covered yet: every stream freezing at once with no error line (seen on a 10 GB RTX 3080). That one still ends
+  as a stalled stream.
+
+**Stress test: same badge for the same cause**
+- If the newest stream exits before its first frame after streams kept up (for example exit 218,
+  `hwaccel initialisation returned error`), the result is now the orange **Could not add stream** warning, the same as
+  when it stalls. It was a red error before.
+
+**What to re-check with this build**
+1. Pull the new image (`docker pull ghcr.io/albarago/jellyfin-transcode-test:latest`) and recreate the container.
+2. NVIDIA consumer cards (e.g. RTX 3060 on Linux, RTX 3080 on Windows or WSL 2): run the same 1080p stress test. Expect
+   **Driver limit** at 12 streams, and the refusal line at the start of the failed stream's log line.
+3. Cards that ran out of memory (e.g. RTX 2000 Ada with AV1, Arc A380): run the same test. Expect **GPU memory full**
+   with the memory error, and no NVIDIA session hint.
+4. A run where the newest stream exited right away (e.g. RTX 2000 Ada HEVC, exit 218): expect the orange
+   **Could not add stream** warning.
+5. Please share the result banner and the failed stream's log line on #163.
+
 ## `1dceda9c5-3cbc4ce19` — 2026-11-03
 **Stress test: a stream that never starts is reported as the limit, with ffmpeg's output**
 - On an RTX 5080 (NVENC), streams 9 and 10 produced no frames in 30 s while the other 8 ran at about 3× real
