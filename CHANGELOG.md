@@ -8,6 +8,32 @@ On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit
 not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
 branches.
 
+## `fdb585826-628e429f0` — 2026-11-05
+From @EliasV21's re-test on [#163](https://github.com/jellyfin/jellyfin-meta/discussions/163) (RTX 5080, WSL 2).
+
+**Stress test: only ffmpeg's errors are shown as the cause**
+- On a 1080p H.264 run, stream 5 hung for 30 s without printing an error. The result quoted a harmless warning about
+  the file (`Invalid Block Addition value … type 68766345`, which a dual-layer Dolby Vision remux prints) as if it were
+  the cause. The test now runs ffmpeg with `-loglevel +level`, which tags each log line with its level. Only lines at
+  error level or worse are shown as the error. This flag changes only ffmpeg's log text, not the transcode: the output
+  is byte-for-byte the same with and without it.
+- If ffmpeg printed no error, the result now says so: "ffmpeg printed no error." Its last lines stay in the log as
+  "Its last output: …", to help diagnose a hang.
+
+**Stress test: no NVIDIA session hint for a stream that hangs**
+- Earlier builds added "this may be the driver's limit on encoding sessions" when an NVENC stream never started.
+  Real session refusals print an error and exit within about 2 s, and the test now detects those directly as
+  **Driver limit**. A silent hang is a different problem, so the hint is gone. The `NvencLimitPossible` field is
+  removed from the API.
+
+**What to re-check with this build**
+1. Pull the new image (`docker pull ghcr.io/albarago/jellyfin-transcode-test:latest`) and recreate the container.
+2. If a stream never started before (e.g. RTX 5080, 1080p H.264): run the same test. The result should say
+   "could not start stream N" with either ffmpeg's error or "ffmpeg printed no error", and no NVIDIA hint.
+3. While that stream is stuck, run `nvidia-smi` and note the encoder session count, the GPU memory used, and whether
+   the encoder and decoder are busy. Please share those with the log line on #163.
+4. If you can, run the same test with tone mapping off as well.
+
 ## `3e80dc607-102904f34` — 2026-11-04
 Fixes from the reports on [#163](https://github.com/jellyfin/jellyfin-meta/discussions/163) by Gauvino, criscrafter
 and alyssaholland99.
