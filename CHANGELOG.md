@@ -8,6 +8,51 @@ On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit
 not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
 branches.
 
+## `835769a55-f75753393` — 2026-11-06
+From @CrazyWolf13's report on [#163](https://github.com/jellyfin/jellyfin-meta/discussions/163).
+
+**Stress test: steadier measurement when a stream restarts**
+- When a stream reaches the end of the file, the test starts it again under the same number. Its time below the
+  threshold used to carry over to the new ffmpeg process, and the gap while the new process started up counted as
+  being behind, so a restart could end the test early. A restarted stream is now judged afresh: it needs a full 5 s
+  below the threshold from its new process before the test ends. Until it is measured, it does not hold back the
+  next stream.
+- A new or restarted stream now gets its first frame rate only after a full 3 s measurement window after its first
+  frame, so the encoder's start-up no longer drags down its first reading. A stream that produced frames and then went
+  quiet still reads 0 fps, and a stream that never produces a frame still ends the test after 30 s.
+- If the file is shorter than a minute, the log says so at the start ("This file is N s long. …") and the page shows a
+  warning: each stream restarts at its end, which briefly disturbs the measurement. A file of at least a minute gives
+  steadier results.
+
+**Stress test: Output Mbps and speeds after a restart**
+- A restarted stream started again at zero, so its **Output Mbps** dropped, and the average counted every ffmpeg
+  process instead of every stream. A restarted stream now keeps the output and frame rate history of the process
+  before it, and the average is taken over the streams shown in the table. "One stream alone ran at X fps" also keeps
+  stream 1's measurement from before a restart.
+- A speed under the threshold is rounded down, so a stream that fell behind shows `0.99×`, never `1.00×`.
+- The log now says "first frame within X s": ffmpeg reports progress twice a second, so the frame came at or
+  before that time.
+
+**Stress test: badge wording**
+- The status badge for a test that found the limit now says **Limit found**, in green rather than red: finding the
+  limit is the result, not an error. A test that ran all streams says **Reached maximum** instead of **Kept up**.
+
+**Compatibility check: formats your GPU doesn't have**
+- A format the GPU lacks (for example AV1 on an older card) used to show as **Failed**, which looked like a broken
+  setup. It now shows as **Not supported**, with "This GPU can't decode AV1 10-bit; H.264 decoding works here, so the
+  setup is fine." (or the same for encoding), but only when all of these are true: ffmpeg said it decoded or encoded
+  exactly 0 frames, the run with the CPU encoder failed too (for decoding), and the H.264 8-bit check of the same kind
+  passed earlier in the same run. Otherwise the row stays **Failed**, as before. If the format is on in your settings,
+  the advice to turn it off is unchanged.
+
+**What to re-check with this build**
+1. Pull the new image (`docker pull ghcr.io/albarago/jellyfin-transcode-test:latest`) and recreate the container.
+2. Run the stress test again with a file at least a minute long. With a shorter file, check that the warning appears.
+3. On a run where streams reached the end of the file: check that **Output Mbps** for those streams stays at the same
+   level, and is not much lower than for the other streams.
+4. On hardware without AV1: run the compatibility check. The AV1 rows should say **Not supported** with "This GPU
+   can't decode/encode AV1 …". If a row still says **Failed**, please share its `ffmpeg:` text on #163.
+
 ## `a974d1ccb-d7c2040e5` — 2026-11-05
 Fixes from the feedback on [#163](https://github.com/jellyfin/jellyfin-meta/discussions/163).
 
