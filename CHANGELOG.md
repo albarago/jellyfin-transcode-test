@@ -8,6 +8,41 @@ On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit
 not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
 branches.
 
+## `a974d1ccb-d7c2040e5` — 2026-11-05
+Fixes from the feedback on [#163](https://github.com/jellyfin/jellyfin-meta/discussions/163).
+
+**Stress test: readable error text**
+- Long error lines were cut to their last 400 characters, so the error could start mid-line (`| 80] decoder->…`,
+  `| ) |`) and the cause could appear twice. The test now keeps ffmpeg's last 4 error lines whole, and leaves out a
+  line that repeats the one before it.
+- For **Driver limit** and **GPU memory full**, the result now shows only the line that names the cause. ffmpeg's
+  other error lines are still in the test log and the server log.
+
+**Stress test: clearer result**
+- The result now says how many streams were running when one fell behind, for example "4 streams kept up with real
+  time. With 5 streams running, stream 5 fell to 20.0 fps." The column header is now **fps at the end**.
+- When a stream dips below the threshold, the log now says so once per dip, for example "Stream 3 dipped to 23.1 fps;
+  waiting 12 s before adding stream 8." A dip restarts the 12 s wait, which is why the next stream can take longer.
+- Log numbers always use a decimal point, whatever the server's language (`61.3 fps`, not `61,3 fps`).
+
+**Compatibility check: better failure details**
+- "Not tested: this ffmpeg could not create a test clip with …" now shows how ffmpeg failed: exit code, signal and
+  its error lines. Exit 132 (signal 4) is described as an illegal instruction (the CPU may lack an instruction this
+  encoder needs), and exit 137 (signal 9) as killed, often because it ran out of memory.
+- If a decoding check fails after frames were decoded, it now says "Decoding started, but the pipeline failed after
+  N frame(s)." instead of "Your hardware may not support this". The advice to turn the format off or on is unchanged.
+- ffmpeg's error is shown on its own line starting with `ffmpeg:`, so it stays separate when you copy the table.
+
+**Docs**
+- The README has a workaround for NVIDIA in a Proxmox LXC container (`bpf_prog_query(BPF_CGROUP_DEVICE) failed`),
+  as confirmed by @tactilebiscuit4.
+
+**What to re-check with this build**
+1. Pull the new image (`docker pull ghcr.io/albarago/jellyfin-transcode-test:latest`) and recreate the container.
+2. Stress test runs that ended with **Driver limit** or **GPU memory full**: the error should be one whole line.
+3. A run that ended because a stream fell behind: check that the result names how many streams were running.
+4. A compatibility check with a **Not tested** or failed decoding row: please share the row's `ffmpeg:` text on #163.
+
 ## `fdb585826-628e429f0` — 2026-11-05
 From @EliasV21's re-test on [#163](https://github.com/jellyfin/jellyfin-meta/discussions/163) (RTX 5080, WSL 2).
 

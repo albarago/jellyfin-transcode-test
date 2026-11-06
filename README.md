@@ -55,6 +55,16 @@ docker run -d --name jellyfin-transcode-test -p 8097:8096 \
 | Intel or AMD (VA-API, Quick Sync) | `--device /dev/dri:/dev/dri --group-add "$(getent group render \| cut -d: -f3)"` |
 | NVIDIA | `--gpus all` (needs the NVIDIA Container Toolkit) |
 
+**NVIDIA inside a Proxmox LXC container.** If `docker run` fails with
+`nvidia-container-cli: mount error: failed to add device rules: ... bpf_prog_query(BPF_CGROUP_DEVICE) failed: operation not permitted`,
+Docker can't manage the GPU's device rules from inside the container. Set `no-cgroups = true` in
+`/etc/nvidia-container-runtime/config.toml`, then pass the device nodes yourself in place of `<GPU option>`:
+
+```sh
+--gpus all -e NVIDIA_DRIVER_CAPABILITIES=all \
+  --device /dev/nvidia0 --device /dev/nvidiactl --device /dev/nvidia-uvm --device /dev/nvidia-uvm-tools
+```
+
 ### 1B. Build it yourself (Windows and macOS)
 
 **Never** use your real server's data folder for the test server:
