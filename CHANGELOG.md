@@ -8,6 +8,40 @@ On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit
 not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
 branches.
 
+## `1ba9b7465-16449bd3e` — 2026-11-06
+From @EliasV21's results on [#163](https://github.com/jellyfin/jellyfin-meta/discussions/163) (The Batman and Project Hail
+Mary, 4K HEVC Dolby Vision): the last stream printed nothing for 30 s and used about 1 s of CPU time, which points at
+ffmpeg still reading the file rather than at the GPU.
+
+**Stress test: why the last stream did not start**
+- When a stream that produced no frames had not opened the file yet and used less than 3 s of CPU time, the log now
+  says so: "Stream 5 did not start within 30 s: ffmpeg had not opened the file yet and used 1.0 s of CPU time, so it
+  was waiting, probably on reading the media. Slow or shared storage, not the GPU, may be the limit." The page shows
+  the same hint under the result. If ffmpeg had opened the file or used more CPU time, the wording is as before. The
+  result and the survey reason are unchanged.
+- The two lines for a stream that printed nothing are now one: "Stream 5 printed nothing in 30.0 s (CPU time 1.0 s,
+  0 B read)." When ffmpeg printed something, the details read "opened the file: no; reached stream mapping: no; last
+  output 4.2 s ago; CPU time 1.0 s; 850 MB read."
+- On Linux (also Docker and WSL), the log now says how much ffmpeg had read from the file (`rchar` in
+  `/proc/<pid>/io`). Elsewhere it is left out.
+- In the stream table, a stream that ended without a frame shows **Did not start** instead of `—`.
+
+**Stress test: time to the first frame, split**
+- "Stream 1: first frame within 7.9 s." is now "Stream 1: opened the file within 6.0 s; first frame 1.9 s later
+  (1.02 GB read)." The first part is how long ffmpeg took to read enough of the file to know its streams; the second is
+  decoding and encoding up to the first frame. If ffmpeg did not say when it opened the file, the old line is kept.
+- The start of the log now says "A stream is added at most every 12 s, once every running stream has kept up for 3 s."
+
+**What to re-check with this build**
+1. Pull the new image (`docker pull ghcr.io/albarago/jellyfin-transcode-test:latest`) and recreate the container.
+2. Run the same stress test. If the last stream does not start, please share the line about it: whether ffmpeg opened
+   the file, its CPU time and how much it read.
+3. Compare the two parts of the first-frame lines. If opening the file takes most of the time, reading the media is
+   the slow part.
+4. Optional: try with the media on the WSL ext4 disk instead of a Windows drive, or set
+   `JELLYFIN_FFmpeg__probesize=50M` and `JELLYFIN_FFmpeg__analyzeduration=5M` on the container, and see whether the
+   first frames come sooner and more streams start.
+
 ## `835769a55-f75753393` — 2026-11-06
 From @CrazyWolf13's report on [#163](https://github.com/jellyfin/jellyfin-meta/discussions/163).
 
