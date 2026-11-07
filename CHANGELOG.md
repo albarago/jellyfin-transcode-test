@@ -8,6 +8,24 @@ On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit
 not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
 branches.
 
+## `a85453a6f-d6c9a8aea` — 2026-11-07
+Found while re-testing on an Apple M5 (VideoToolbox).
+
+**Stress test: a run near the limit could go on forever**
+- Every short dip below the threshold restarted the 12 s wait before the next stream. With many streams running just
+  above real time, some stream dipped for a moment every few seconds, so the next stream was never added and the
+  test never ended. Now the next stream is added 12 s after the last one, or 3 s after the last dip if that is later.
+  A dip shorter than 5 s still never ends the test.
+- The dip line now reads "Stream 3 dipped to 23.6 fps; stream 11 waits until every stream has kept up for 3 s."
+
+**Stress test: help text**
+- The help on the page now states the same rule as the log: a stream is added at most every 12 s, once every running
+  stream has kept up for 3 s.
+
+**What to re-check with this build**
+1. Pull the new image (`docker pull ghcr.io/albarago/jellyfin-transcode-test:latest`) and recreate the container.
+2. Runs that end with many streams close to real time should now finish with **Limit found** instead of running on.
+
 ## `1ba9b7465-16449bd3e` — 2026-11-06
 From @EliasV21's results on [#163](https://github.com/jellyfin/jellyfin-meta/discussions/163) (The Batman and Project Hail
 Mary, 4K HEVC Dolby Vision): the last stream printed nothing for 30 s and used about 1 s of CPU time, which points at
