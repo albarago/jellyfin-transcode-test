@@ -8,6 +8,36 @@ On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit
 not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
 branches.
 
+## `6e8ba2545-4c7001959` — 2026-11-10
+From @pes502's results on [#163](https://github.com/jellyfin/jellyfin-meta/discussions/163) (RTX 3070 8 GB, Windows 11,
+Docker Desktop on WSL2).
+
+**Compatibility check: AV1 encoding on GPUs without it**
+- On an RTX 3070 the AV1 encode row said **Failed**, because ffmpeg stopped before it printed how many frames it
+  encoded. It now says **Not supported** when the encoder got no frame out and the error names that encoder or its
+  output stream (for example `[vost#0:0/av1_nvenc @ …] Task finished with error code: -22`), as long as H.264 encoding
+  passed in the same run. Otherwise it still says **Failed**. The advice is unchanged.
+- The same applies to `av1_qsv` on older Intel GPUs.
+
+**Stress test: home videos**
+- The media picker now also lists home videos and music videos, not only movies and episodes. When nothing is found
+  it says "No movies, episodes or videos found. Add a library with video files to run the stress test." The server
+  rejects items that are not videos.
+
+**Stress test: streams that collapse together**
+- When the limit is reached and all streams slow down sharply at once, rather than one falling a little behind, the
+  result now says so: "All streams slowed down sharply at once, rather than one falling a little behind. That usually
+  means the GPU ran out of memory or the driver stalled, not that it was slightly too slow; 8 streams is still the
+  safe result." It counts as a collapse when all streams but at most one are under a quarter of the threshold, or
+  their combined frame rate is under a quarter of the peak. The page shows the same hint under the result. The result
+  and the survey reason are unchanged.
+
+**What to re-check with this build**
+1. Pull the new image (`docker pull ghcr.io/albarago/jellyfin-transcode-test:latest`) and recreate the container.
+2. On a GPU without AV1 encoding, the AV1 encode row should say **Not supported**.
+3. Videos in a **Home videos** library should now be selectable for the stress test.
+4. A run that collapses, like the nine-stream runs on the RTX 3070, should show the new hint under the result.
+
 ## `a85453a6f-d6c9a8aea` — 2026-11-07
 Found while re-testing on an Apple M5 (VideoToolbox).
 
