@@ -8,6 +8,27 @@ On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit
 not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
 branches.
 
+## `ea50a4f8a-356e872a1` — 2026-11-14
+Found while testing short files on an Apple M5.
+
+**Stress test: a short file ended the test as a failure**
+- A stream that reached the end of its file was only started again if its ffmpeg had run for at least 3 s. On a clip
+  of 13 s, ffmpeg finished in 2 s and the test ended with "ffmpeg exited after 2.0 s, too soon to be the end of the
+  file". Now a clean exit counts as the end of the file when ffmpeg got at least 90% of the way through the source.
+  A clean exit well before the end still fails the test, and the result says how far it got.
+- The position of a stream is now the later of ffmpeg's `time=` value and the frames written divided by the source's
+  frame rate. With the playback command, `time=` ended 2-3 s behind the frames that had been encoded.
+
+**Stress test: ffmpeg that does not start**
+- If the system does not run ffmpeg within 30 s (for example, the binary sits on storage that does not answer), the
+  test now ends with "Stream N could not start" and kills the process if it shows up later. Before, the whole test
+  waited for it, with no stall check and no time limit.
+
+**What to re-check with this build**
+1. Pull the new image (`docker pull ghcr.io/albarago/jellyfin-transcode-test:latest`) and recreate the container.
+2. If you test with a short sample (under a minute), the run should now end with **Limit found**, not with an error
+   about ffmpeg exiting too soon. A warning about the short file is still expected.
+
 ## `48e775d59-356e872a1` — 2026-11-14
 Rebased onto the current Jellyfin `master` (server and web), after an independent review of the code. The
 `transcode-test` branches were rewritten again, so images before this one are tagged with commit IDs that no longer
