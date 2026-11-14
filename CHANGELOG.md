@@ -8,6 +8,46 @@ On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit
 not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
 branches.
 
+## `48e775d59-356e872a1` — 2026-11-14
+Rebased onto the current Jellyfin `master` (server and web), after an independent review of the code. The
+`transcode-test` branches were rewritten again, so images before this one are tagged with commit IDs that no longer
+appear on the branches. The server code is now split in three: the playback refactor, the compatibility check, and the
+stress test.
+
+**Stress test: safer on a real server**
+- Stopping or restarting Jellyfin during a test now stops every test ffmpeg and removes its files. Before, up to one
+  ffmpeg per stream could keep running and writing segments after the server had shut down.
+- A test now ends by itself after a time limit (at least 15 min, longer for a high maximum number of streams) and when
+  nobody has looked at the page for 10 min. A run that sat just above the threshold could go on forever.
+- A stream is only started again at the end of its file if its ffmpeg exited cleanly after producing frames and had
+  run for at least 3 s. Before, an ffmpeg that exited at once could restart over and over.
+- The test does not judge a stream in the last seconds of its file, so the end of the file no longer looks like a
+  stream dropping to 0 fps.
+- The request limits the bitrate to 100 Mbps and checks for free disk space before it starts.
+
+**Stress test: more accurate endings**
+- A stream that restarted at the end of its file is no longer reported as "the server could not start stream N".
+- ffmpeg's last output is read before a stream that exited is classified, so the NVIDIA and GPU memory endings are not
+  missed when the machine is busy.
+- **Driver limit** is now named only when NVENC reports the client key error (code 21) or the number of streams running
+  matches a known limit (3, 5, 8 or 12). Otherwise the result reads "NVENC refused a new session (a driver session
+  limit or GPU memory)" and the status chip says **Session refused**. NVENC reports "out of memory" for both causes.
+- The compatibility check never reports a format as **Not supported** when ffmpeg refused a session or ran out of GPU
+  memory. The row says **Failed** and starts with that line.
+
+**Other**
+- Stream statuses and the survey failure reason are now words (`NotStarted`, `FailedNvencLimit`), not codes.
+- Only the video, not other items, can be chosen for the stress test: a library item that is not a video is refused.
+- Web: the new text is in alphabetical place in `en-us.json`, labels and units come from strings, numbers follow your
+  language's format, and when the server refuses to start a test the page shows its message.
+
+**What to re-check with this build**
+1. Pull the new image (`docker pull ghcr.io/albarago/jellyfin-transcode-test:latest`) and recreate the container.
+2. NVIDIA: when the test ends with **Driver limit** or **Session refused**, tell me how many streams were running,
+   your card and driver version, and the ending text. That decides whether the known limits are right.
+3. Stop the container (`docker stop`) during a stress test, then check that no `ffmpeg` is left running in the
+   container's cgroup or in `docker top`.
+
 ## `6e8ba2545-4c7001959` — 2026-11-10
 From @pes502's results on [#163](https://github.com/jellyfin/jellyfin-meta/discussions/163) (RTX 3070 8 GB, Windows 11,
 Docker Desktop on WSL2).
