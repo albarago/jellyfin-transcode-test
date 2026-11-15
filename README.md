@@ -10,7 +10,8 @@ Dashboard -> Playback -> Transcoding page:
 
 - **Stress test:** transcodes a movie the way Jellyfin does during playback and adds a stream every 12 seconds
   until one can no longer keep up with real time (100% of the source frame rate). It also reports how fast one
-  stream runs alone, and on NVIDIA it tells you if the driver's session limit was hit.
+  stream runs alone, and on NVIDIA it reports when NVENC refuses a new encoding session, with the diagnostic
+  needed to investigate the cause.
 
   <img width="971" height="782" alt="stress-test" src="https://github.com/user-attachments/assets/7bd1cce9-6f6d-4ce9-94c8-e8dc66d9f478" />
 
@@ -42,13 +43,24 @@ Use a new, empty config and mount one media folder read-only. That way nothing y
 
 ```sh
 docker pull ghcr.io/albarago/jellyfin-transcode-test:latest
-docker run -d --name jellyfin-transcode-test -p 8097:8096 \
+docker run -d --name jellyfin-transcode-test -p 127.0.0.1:8097:8096 \
   -v jellyfin-transcode-test-config:/config \
   -v jellyfin-transcode-test-cache:/cache \
   -v /path/to/some/movies:/media:ro \
   <GPU option> \
   ghcr.io/albarago/jellyfin-transcode-test:latest
 ```
+
+The published port is host-local by default: open `http://localhost:8097` on the Docker host.
+For a NAS or another machine on your LAN, opt in to remote access with an SSH tunnel from your own computer:
+
+```sh
+ssh -N -L 127.0.0.1:8097:127.0.0.1:8097 <user>@<docker-host>
+```
+
+Then open `http://localhost:8097` on your computer. A direct LAN port publication would also expose the test
+server's first-run setup to other clients on that network; it is not enabled by these examples. Keep the test
+server private and finish creating its administrator account before sharing access.
 
 | GPU | `<GPU option>` |
 |---|---|
@@ -91,7 +103,7 @@ Set it to port 8097 (once, before the first start):
 
 ```powershell
 New-Item -ItemType Directory -Force test-data\config | Out-Null
-Set-Content test-data\config\network.xml '<?xml version="1.0" encoding="utf-8"?><NetworkConfiguration><InternalHttpPort>8097</InternalHttpPort><EnableAutoDiscovery>false</EnableAutoDiscovery></NetworkConfiguration>'
+Set-Content test-data\config\network.xml '<?xml version="1.0" encoding="utf-8"?><NetworkConfiguration><InternalHttpPort>8097</InternalHttpPort><LocalNetworkAddresses><string>127.0.0.1</string></LocalNetworkAddresses><EnableAutoDiscovery>false</EnableAutoDiscovery></NetworkConfiguration>'
 ```
 
 Start it:
@@ -113,7 +125,7 @@ Set it to port 8097 (once, before the first start):
 
 ```sh
 mkdir -p test-data/config
-echo '<?xml version="1.0" encoding="utf-8"?><NetworkConfiguration><InternalHttpPort>8097</InternalHttpPort><EnableAutoDiscovery>false</EnableAutoDiscovery></NetworkConfiguration>' > test-data/config/network.xml
+echo '<?xml version="1.0" encoding="utf-8"?><NetworkConfiguration><InternalHttpPort>8097</InternalHttpPort><LocalNetworkAddresses><string>127.0.0.1</string></LocalNetworkAddresses><EnableAutoDiscovery>false</EnableAutoDiscovery></NetworkConfiguration>' > test-data/config/network.xml
 ```
 
 Start it:
@@ -127,7 +139,8 @@ If your ffmpeg is somewhere else, change the `--ffmpeg` path. To stop it, press 
 <details>
 <summary>Prefer to stop your real server and use port 8096 instead?</summary>
 
-Skip the "Set it to port 8097" step, stop your real server, and open `http://localhost:8096` in step 2.
+Use the same separate `test-data/config/network.xml`, changing `InternalHttpPort` to `8096` and keeping
+`LocalNetworkAddresses` set to `127.0.0.1`. Stop your real server, then open `http://localhost:8096` in step 2.
 
 | OS | To stop | To start again |
 |---|---|---|
@@ -139,7 +152,7 @@ Skip the "Set it to port 8097" step, stop your real server, and open `http://loc
 
 ## 2. Run the tests
 
-1. Open `http://<your server>:8097` (or `http://localhost:8097` if you built it yourself), create an admin user,
+1. Open `http://localhost:8097` (use the SSH tunnel above for a remote Docker host), create an admin user,
    and add a library with one movie folder (`/media` on Docker).
 2. Go to **Dashboard -> Playback -> Transcoding**, choose your hardware acceleration as you would on your real
    server (VideoToolbox on a Mac), and click **Save**.
@@ -157,7 +170,10 @@ Skip the "Set it to port 8097" step, stop your real server, and open `http://loc
 Post them in [jellyfin-meta #163](https://github.com/jellyfin/jellyfin-meta/discussions/163). Please include:
 
 - your CPU, GPU, OS and driver version, and the hardware acceleration type you chose;
-- which build you ran. Docker: `docker image inspect --format '{{.Created}}' ghcr.io/albarago/jellyfin-transcode-test:latest`.
+- which build you ran. Docker: `docker inspect --format '{{.Image}}' jellyfin-transcode-test` identifies the running
+  container's image even if `latest` has moved; share it together with
+  `docker inspect --format '{{json .Config.Labels}}' jellyfin-transcode-test` (the full server, web and image-recipe
+  revisions and the pinned bases are recorded there).
   Built yourself: `git -C jellyfin log -1 --format=%h` and `git -C jellyfin-web log -1 --format=%h`;
 - screenshots of the compatibility check table and the stress test result;
 - the **Test log** of each test (expand it at the bottom of each section and copy the text);
@@ -202,3 +218,19 @@ start it again.
 
 GitHub Actions builds it for `linux/amd64` and `linux/arm64` (Actions -> Image -> Run workflow). The Dockerfile
 replaces the server and web client of the official `jellyfin/jellyfin:unstable` image with the two branches.
+
+All three base images are pinned to multi-platform index digests, and all workflow actions are pinned to full
+commit IDs. Each build records the full checked-out server, web and image-repository revisions in image labels
+and the Actions summary, together with the pinned bases and published image digest. BuildKit provenance and SBOM
+attestations are requested as well.
+
+The existing `<server commit>-<web commit>` tag is kept as a convenience alias, but a third tag,
+`<server commit>-<web commit>-<image recipe commit>`, distinguishes a Dockerfile/workflow change built from the
+same source pair. `latest` and the two-commit alias can move; use the published image **digest** for an exact
+artifact. Local builds should pass `SERVER_REVISION`, `WEB_REVISION` and `IMAGE_REVISION` as build arguments using
+the full `git rev-parse HEAD` output for each checkout, otherwise their revision labels read `unknown`.
+
+These pins identify the sources and base images; they do not promise byte-for-byte reproducibility. `apk add`
+still resolves packages from live Alpine repositories, NuGet restore can contact package feeds, and the runner,
+QEMU and BuildKit can change independently of the action code. npm uses the checked-in lockfile, and changing a
+base pin or action pin requires reviewing its upstream contents and supported architectures again.
