@@ -3,10 +3,55 @@
 Each image is tagged `<server commit>-<web commit>` from the `transcode-test` branches of
 [albarago/jellyfin](https://github.com/albarago/jellyfin/tree/transcode-test) and
 [albarago/jellyfin-web](https://github.com/albarago/jellyfin-web/tree/transcode-test). `latest` is the newest one.
+New builds also have a `<server commit>-<web commit>-<image recipe commit>` tag so a Dockerfile or workflow change
+is not hidden behind the same source-pair alias. See the image labels and published digest for its full identity.
 
 On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit author name. The files did
 not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
 branches.
+
+## Unreleased
+Fixes from two independent reviews. Not in a published image yet.
+
+**Stress test: NVENC refusals**
+- NVENC's "out of memory" (code 10) and "incompatible client key" (code 21) both end the test as **Session refused**,
+  with ffmpeg's diagnostic. Neither code, nor the number of streams running, proves a limit on concurrent sessions.
+  For code 21 the result adds a hint: it is NVIDIA's license restriction, on GeForce cards commonly the limit on
+  concurrent encoding sessions, and sessions outside the test count too.
+- The old **Driver limit** result is gone. The entries below describe earlier images; their driver-limit wording is
+  not evidence that a refusal established a numerical cap.
+
+**Stress test: short and medium files**
+- Each stream must keep up at the current load before another stream is added. Each stream is judged on its own:
+  over a few seconds of measurement, or over a whole pass of the file when the file is too short for that. A stream
+  that already kept up does not hold back the next one while it starts again at the end of the file. A stream that
+  was never measured still cannot count as keeping up.
+- A stream that falls behind over a whole pass of the file, for at least 5 s, ends the test with **Limit found**.
+- A stream that starts again 100 times stops the test with the kept-up count as the result, instead of an error.
+- "One stream alone ran at 0.0 fps" no longer appears when that stream was never measured.
+
+**Stress test: end of the file**
+- A clean exit counts as the end of the file when ffmpeg got within 1% of the duration (at least 2 s, at most 10 s,
+  and never more than a quarter of the file). This replaces the 90% rule: a two-hour film that stops 10 minutes early
+  fails the test, and a file whose audio runs 2 s past its video still starts again. A file of unknown duration is
+  not started again.
+
+**Stress test: other fixes**
+- Input that already matches the target codec is transcoded with the hardware encoder, never copied.
+- A stream's files are removed as soon as it reaches the end of the file, and the test's total output is checked
+  against its space budget.
+
+**Compatibility check**
+- Test clips are written to a temporary file and only kept after they probe as the expected clip; a cancelled run
+  leaves nothing behind, and a broken cached clip is made again.
+- A clip that fails or times out at 1080p is tried again at 640x360. Only an ffmpeg that never started is not
+  retried.
+- Generic ffmpeg errors no longer show as **Not supported**, and a check that failed reports ffmpeg's own error first.
+- The check can be stopped, and the page says when the server cannot be reached or access was denied.
+
+**Image**
+- The three base images and all workflow actions are pinned. New builds also get a
+  `<server commit>-<web commit>-<image recipe commit>` tag and record all revisions in image labels.
 
 ## `ea50a4f8a-356e872a1` — 2026-11-14
 Found while testing short files on an Apple M5.
