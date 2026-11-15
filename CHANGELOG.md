@@ -10,8 +10,8 @@ On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit
 not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
 branches.
 
-## Unreleased
-Fixes from two independent reviews. Not in a published image yet.
+## Review fixes — 2026-11-15
+Fixes from independent reviews. Use the image labels and digest to identify the exact published revision.
 
 **Stress test: NVENC refusals**
 - NVENC's "out of memory" (code 10) and "incompatible client key" (code 21) both end the test as **Session refused**,
@@ -22,36 +22,55 @@ Fixes from two independent reviews. Not in a published image yet.
   not evidence that a refusal established a numerical cap.
 
 **Stress test: short and medium files**
-- Each stream must keep up at the current load before another stream is added. Each stream is judged on its own:
-  over a few seconds of measurement, or over a whole pass of the file when the file is too short for that. A stream
-  that already kept up does not hold back the next one while it starts again at the end of the file. A stream that
-  was never measured still cannot count as keeping up.
+- Finite local video files loop inside each ffmpeg process, keeping the encoding load continuous even on short
+  clips. Playback's encoder, filters, mapping and output options are unchanged. Remote, live, disc and
+  unknown-duration inputs are not given this loop option.
+- Capacity is certified only while every stream is physically running and measured together. A pending launch,
+  EOF drain or process replacement invalidates the qualifying interval. Separate healthy passes through a file
+  cannot certify simultaneous capacity.
 - A stream that falls behind over a whole pass of the file, for at least 5 s, ends the test with **Limit found**.
-- A stream that starts again 100 times stops the test with the kept-up count as the result, instead of an error.
+- Exhausting the fallback restart budget, or reaching the time limit before the requested maximum is verified,
+  is **Inconclusive**, not a measured performance limit. A previously verified count is retained as a lower bound.
+- Same-tick process failures and measured slowdowns take precedence over the fallback restart budget.
 - "One stream alone ran at 0.0 fps" no longer appears when that stream was never measured.
 
 **Stress test: end of the file**
-- A clean exit counts as the end of the file when ffmpeg got within 1% of the duration (at least 2 s, at most 10 s,
-  and never more than a quarter of the file). This replaces the 90% rule: a two-hour film that stops 10 minutes early
-  fails the test, and a file whose audio runs 2 s past its video still starts again. A file of unknown duration is
-  not started again.
+- For non-looped inputs, a clean exit can use ffmpeg's affirmative video-decoder EOF diagnostic, so longer audio
+  does not make a complete video look truncated. The duration fallback is bounded to 1% (at least 2 s, at most 10 s,
+  and never more than a quarter of the file). Unknown-duration inputs are not restarted.
+- Affirmative premature-file diagnostics veto healthy EOF and whole-pass rate evidence, even when ffmpeg exits
+  with code zero. Looped inputs have no finite EOF exemption.
 
 **Stress test: other fixes**
 - Input that already matches the target codec is transcoded with the hardware encoder, never copied.
 - A stream's files are removed as soon as it reaches the end of the file, and the test's total output is checked
   against its space budget.
+- A pending launch cannot be overwritten by another launch. Shutdown no longer adds an output-reader wait for
+  every exited process after the shared process deadline.
 
 **Compatibility check**
-- Test clips are written to a temporary file and only kept after they probe as the expected clip; a cancelled run
-  leaves nothing behind, and a broken cached clip is made again.
+- Test clips are written to a temporary file and only kept after their metadata matches and a software decode
+  verifies all 96 frames. Header-valid truncated cached clips are regenerated; inconclusive verification and
+  hardware failures do not evict a potentially valid source.
 - A clip that fails or times out at 1080p is tried again at 640x360. Only an ffmpeg that never started is not
   retried.
 - Generic ffmpeg errors no longer show as **Not supported**, and a check that failed reports ffmpeg's own error first.
-- The check can be stopped, and the page says when the server cannot be reached or access was denied.
+- Cancelling or shutting down also owns and stops an in-progress ffprobe, including a stalled stdout read.
+- Undefined test modes are rejected with HTTP 400 before background work is scheduled.
+
+**Web recovery**
+- Remounting the page performs a fresh status check. Run stays disabled until a successful authenticated,
+  non-null status has been received; access failures and pending retries cannot appear as an idle server.
+- A failed Stop or Clear retains its original intent. Retry first reconciles server state, so a Stop whose response
+  was lost cannot silently become Clear and discard the result.
+- Inconclusive runs have neutral wording and no performance-limit survey claim.
+- A sharp combined slowdown does not identify its cause. The web and server retain the verified count as a
+  lower bound, without claiming GPU memory/driver trouble or guaranteeing a safe maximum.
 
 **Image**
 - The three base images and all workflow actions are pinned. New builds also get a
   `<server commit>-<web commit>-<image recipe commit>` tag and record all revisions in image labels.
+- Image publishing is serialized; a superseded workflow run is cancelled instead of racing the newest `latest`.
 
 ## `ea50a4f8a-356e872a1` — 2026-11-14
 Found while testing short files on an Apple M5.

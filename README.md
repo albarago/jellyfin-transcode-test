@@ -8,10 +8,11 @@ Dashboard -> Playback -> Transcoding page:
 
   <img width="971" height="782" alt="compatibility-check" src="https://github.com/user-attachments/assets/45f944fd-c8dd-4ce0-a979-16e836b9267d" />
 
-- **Stress test:** transcodes a movie the way Jellyfin does during playback and adds a stream every 12 seconds
+- **Stress test:** transcodes a movie the way Jellyfin does during playback and adds a stream at most every 12 seconds
   until one can no longer keep up with real time (100% of the source frame rate). It also reports how fast one
   stream runs alone, and on NVIDIA it reports when NVENC refuses a new encoding session, with the diagnostic
-  needed to investigate the cause.
+  needed to investigate the cause. Finite local files loop within each process so short clips can provide a
+  continuous concurrent workload. A time or source budget without a measured limit is reported as inconclusive.
 
   <img width="971" height="782" alt="stress-test" src="https://github.com/user-attachments/assets/7bd1cce9-6f6d-4ce9-94c8-e8dc66d9f478" />
 
@@ -19,8 +20,9 @@ The code is in the `transcode-test` branches of [albarago/jellyfin](https://gith
 and [albarago/jellyfin-web](https://github.com/albarago/jellyfin-web/tree/transcode-test). The proposal and
 discussion are in [jellyfin-meta #163](https://github.com/jellyfin/jellyfin-meta/discussions/163).
 
-So far it has been tested on Apple VideoToolbox, Intel (UHD 770, Celeron N5095, Arc A380) and one AMD GPU
-(Vega 7). **NVIDIA** results are the most useful now, followed by more **AMD** cards.
+Earlier images received community results on Apple VideoToolbox, Intel (UHD 770, Celeron N5095, Arc A380), AMD
+(Vega 7), and NVIDIA. Those results do not validate the latest review fixes. Fresh native execution of this
+revision is limited to Apple M5 / macOS; **NVIDIA, Intel, AMD, Linux, and Windows need re-testing**.
 
 See [CHANGELOG.md](CHANGELOG.md) for what changed between builds and what to re-check.
 
@@ -103,7 +105,7 @@ Set it to port 8097 (once, before the first start):
 
 ```powershell
 New-Item -ItemType Directory -Force test-data\config | Out-Null
-Set-Content test-data\config\network.xml '<?xml version="1.0" encoding="utf-8"?><NetworkConfiguration><InternalHttpPort>8097</InternalHttpPort><LocalNetworkAddresses><string>127.0.0.1</string></LocalNetworkAddresses><EnableAutoDiscovery>false</EnableAutoDiscovery></NetworkConfiguration>'
+Set-Content test-data\config\network.xml '<?xml version="1.0" encoding="utf-8"?><NetworkConfiguration><InternalHttpPort>8097</InternalHttpPort><LocalNetworkAddresses><string>127.0.0.1</string></LocalNetworkAddresses><AutoDiscovery>false</AutoDiscovery><EnableRemoteAccess>false</EnableRemoteAccess></NetworkConfiguration>'
 ```
 
 Start it:
@@ -125,7 +127,7 @@ Set it to port 8097 (once, before the first start):
 
 ```sh
 mkdir -p test-data/config
-echo '<?xml version="1.0" encoding="utf-8"?><NetworkConfiguration><InternalHttpPort>8097</InternalHttpPort><LocalNetworkAddresses><string>127.0.0.1</string></LocalNetworkAddresses><EnableAutoDiscovery>false</EnableAutoDiscovery></NetworkConfiguration>' > test-data/config/network.xml
+echo '<?xml version="1.0" encoding="utf-8"?><NetworkConfiguration><InternalHttpPort>8097</InternalHttpPort><LocalNetworkAddresses><string>127.0.0.1</string></LocalNetworkAddresses><AutoDiscovery>false</AutoDiscovery><EnableRemoteAccess>false</EnableRemoteAccess></NetworkConfiguration>' > test-data/config/network.xml
 ```
 
 Start it:
