@@ -1,7 +1,8 @@
 name: Image
 
 # Builds ghcr.io/albarago/jellyfin-transcode-test from the transcode-test branches of the two forks.
-# Run it by hand (Actions → Image → Run workflow) after pushing to either branch.
+# It runs on every push to main. After pushing to either fork's branch, start it with Actions → Image → Run workflow.
+# Only a run of main moves "latest"; a run of another branch publishes only its exact source and recipe tags.
 
 on:
   push:
@@ -12,10 +13,11 @@ permissions:
   contents: read
   packages: write
 
-# A superseded run must not publish its older recipe over the newest "latest" alias.
+# Publishing runs one at a time in the order they started, so a run is never stopped after it moved "latest"
+# but before its recipe tag and summary, and the newest queued run moves "latest" last.
 concurrency:
   group: jellyfin-transcode-test-image
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   image:
@@ -45,6 +47,13 @@ jobs:
             echo "image_revision=$image_revision"
             echo "tag=$source_tag"
             echo "recipe_tag=$source_tag-$(git rev-parse --short=9 HEAD)"
+            echo "tags<<EOF"
+            if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+              echo "ghcr.io/albarago/jellyfin-transcode-test:latest"
+            fi
+            echo "ghcr.io/albarago/jellyfin-transcode-test:$source_tag"
+            echo "ghcr.io/albarago/jellyfin-transcode-test:$source_tag-$(git rev-parse --short=9 HEAD)"
+            echo "EOF"
           } >> "$GITHUB_OUTPUT"
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
@@ -65,10 +74,7 @@ jobs:
             SERVER_REVISION=${{ steps.tag.outputs.server_revision }}
             WEB_REVISION=${{ steps.tag.outputs.web_revision }}
             IMAGE_REVISION=${{ steps.tag.outputs.image_revision }}
-          tags: |
-            ghcr.io/albarago/jellyfin-transcode-test:latest
-            ghcr.io/albarago/jellyfin-transcode-test:${{ steps.tag.outputs.tag }}
-            ghcr.io/albarago/jellyfin-transcode-test:${{ steps.tag.outputs.recipe_tag }}
+          tags: ${{ steps.tag.outputs.tags }}
       - name: Record the published identity
         env:
           IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
