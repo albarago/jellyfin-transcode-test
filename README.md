@@ -11,8 +11,11 @@ Dashboard -> Playback -> Transcoding page:
 - **Stress test:** transcodes a movie the way Jellyfin does during playback and adds a stream at most every 12 seconds
   until one can no longer keep up with real time (100% of the source frame rate). It also reports how fast one
   stream runs alone, and on NVIDIA it reports when NVENC refuses a new encoding session, with the diagnostic
-  needed to investigate the cause. Finite local files loop within each process so short clips can provide a
-  continuous concurrent workload. A time or source budget without a measured limit is reported as inconclusive.
+  needed to investigate the cause. Finite local files with a single input loop within each process so short clips
+  can provide a continuous concurrent workload; items with external audio or subtitle files restart at the end of
+  the file instead. Sources shorter than 5 seconds are refused. A read error from the input or a media file that
+  becomes unavailable is reported as a failure, not as a capacity limit, and a time or source budget without a
+  measured limit is reported as inconclusive.
 
   <img width="971" height="782" alt="stress-test" src="https://github.com/user-attachments/assets/7bd1cce9-6f6d-4ce9-94c8-e8dc66d9f478" />
 

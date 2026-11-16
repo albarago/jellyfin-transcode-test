@@ -10,6 +10,44 @@ On 2026-11-02 the `transcode-test` branches were rewritten to correct the commit
 not change. Images built before that are tagged with the old commit IDs below; they no longer appear on the
 branches.
 
+## Review fixes — 2026-11-16
+Fixes from a third review. Use the image labels and digest to identify the exact published revision.
+
+**Stress test: inputs**
+- Only a playback command with a single input loops. With an external audio or subtitle file, `-stream_loop` would
+  repeat only the video, and the workload would shrink after the first pass, so such items start each stream again
+  at the end of the file instead. A short item of this kind can end **Inconclusive** after the restart budget.
+- A read error from the input (for example `Read error at pos.`, `Error during demuxing: Input/output error`, a
+  stale file handle or a vanished file) ends the test as a stream failure with ffmpeg's line ("The input
+  stopped: …"), not as **Limit found**. When every stream slows down or stalls at once, the media file is checked
+  first; if it can no longer be read, the result is "The media file became unavailable", not a capacity limit.
+- An input that is not a local file, such as a remote `.strm` URL, is flagged: its result also includes how fast
+  the source delivers it.
+- Sources shorter than 5 seconds are refused with HTTP 400 and a message. Every pass of a looped file resets the
+  decoder and repeats a few frames (about 1% of the output on a 14 s clip), so files under a minute can read
+  slightly high; the short-file note now says so.
+- Short clips are not capped at two streams. On one Apple M5 (VideoToolbox, 1080p 8 Mbps from 4K HDR), a 14 s
+  clip, a 25 s clip and the 5-minute file each certified 10 streams in the same session. An earlier "two concurrent
+  streams" result came from a test harness that capped the run at two streams.
+
+**Compatibility check**
+- A clip whose cached copy cannot be verified, or whose probe times out, no longer fails the whole check. Its rows
+  are **Not tested** with the reason, the other clips are still checked, and the cached clip is kept. Without the
+  H.264 clip, the three encoder rows are **Not tested** too.
+- The ffmpeg 8 wording of a corrupt-input decoder error ("Error processing packet in decoder: Invalid data found
+  when processing input") now marks a cached clip as damaged, so it is made again.
+
+**Dashboard**
+- Run and Clear stay disabled until a fresh status has loaded after the page opens; a cached or saved status from
+  an earlier visit, or a reply that is not a test status, enables nothing.
+- Stop and Clear first confirm with a fresh status that the server still has the run shown. If another
+  administrator started a new run, nothing is stopped or cleared. The server's DELETE acts on whichever run it
+  has, for any administrator.
+
+**Image**
+- Only runs of `main` move `latest`; publishing runs are queued instead of cancelled. The image labels now name
+  the server and web source repositories next to their revisions.
+
 ## Review fixes — 2026-11-15
 Fixes from independent reviews. Use the image labels and digest to identify the exact published revision.
 
